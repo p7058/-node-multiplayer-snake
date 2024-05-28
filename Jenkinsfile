@@ -1,10 +1,8 @@
 node ('ubu-app-agent') {
   def app
   stage('Cloning Git') {
-    steps {
-        /* Let's make sure we have the repository cloned to our workspace */
        checkout scm
-    }  
+     
   }
   
   stage('Build-and-Tag') {
@@ -19,10 +17,10 @@ node ('ubu-app-agent') {
   }  
 
   stage('Pull-image-server') {
-    steps {
+
          sh 'echo pulling image ...'
          sh "docker-compose down"
          sh "docker-compose up -d"
-    }
+
   }
 }
