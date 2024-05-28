@@ -1,39 +1,49 @@
-node ('ubu-app-agent'){  
-    def app
-    stage('Cloning Git') {
-        /* Let's make sure we have the repository cloned to our workspace */
-       checkout scm
-    }  
-    stage('SAST'){
-        build 'SECURITY-SAST-SNYK'
+pipeline {
+    agent {
+        label 'ubu-app-agent'
     }
-
-    
-    stage('Build-and-Tag') {
-    /* This builds the actual image; synonymous to
-         * docker build on the command line */
-        app = docker.build("dockme70/snake")
+    environment {
+        DOCKER_IMAGE = 'dockme70/snake'
+        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
     }
-    stage('Post-to-dockerhub') {
-    
-     docker.withRegistry('https://registry.hub.docker.com', 'dockerhub_cred') {
-            app.push("latest")
-        			}
-         }
-    stage('SECURITY-IMAGE-SCANNER'){
-        build 'SECURITY-IMAGE-SCANNER-AQUAMICROSCANNER'
-    }
-  
-    
-    stage('Pull-image-server') {
-    
-         sh "docker-compose down"
-         sh "docker-compose up -d"	
-      }
-    
-    stage('DAST')
-        {
-        build 'SECURITY-DAST-OWASP_ZAP'
+    stages {
+        stage('Cloning Git') {
+            steps {
+                /* Let's make sure we have the repository cloned to our workspace */
+                checkout scm
+            }
         }
- 
+
+        stage('Build-and-Tag') {
+            steps {
+                script {
+                    /* This builds the actual image; synonymous to docker build on the command line */
+                    app = docker.build(env.DOCKER_IMAGE)
+                }
+            }
+        }
+
+        stage('Post-to-dockerhub') {
+            steps {
+                script {
+                    docker.withRegistry(env.DOCKER_REGISTRY, 'dockerhub_cred') {
+                        app.push("latest")
+                    }
+                }
+            }
+        }
+
+        stage('Pull-image-server') {
+            steps {
+                sh 'echo pulling image ...'
+                sh 'docker-compose down'
+                sh 'docker-compose up -d'
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
+        }
+    }
 }
