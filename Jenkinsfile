@@ -1,26 +1,52 @@
-node ('ubu-app-agent') {
-  def app
-  stage('Cloning Git') {
-       checkout scm
-     
-  }
-  
-  stage('Build-and-Tag') {
-    /* This builds the actual image; synonymous to
-         * docker build on the command line */
-        app = docker.build("dockme70/snake")
-  }
-  stage('Post-to-dockerhub') {
-    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub_cred') {
-      app.push("latest")
+pipeline {
+    agent {
+        label 'ubu-app-agent'
     }
-  }  
+    environment {
+        DOCKER_IMAGE = 'dockme70/snake'
+        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+    }
+    stages {
+        stage('Cloning Git') {
+            steps {
+                // Cloning the repository into the workspace
+                checkout scm
+            }
+        }
 
-  stage('Pull-image-server') {
+        stage('Build-and-Tag') {
+            steps {
+                script {
+                    // Building the Docker image
+                    app = docker.build(env.DOCKER_IMAGE)
+                }
+            }
+        }
 
-         sh 'echo pulling image ...'
-         sh "docker-compose down"
-         sh "docker-compose up -d"
+        stage('Post-to-dockerhub') {
+            steps {
+                script {
+                    // Pushing the Docker image to Docker Hub
+                    docker.withRegistry(env.DOCKER_REGISTRY, 'dockerhub_cred') {
+                        app.push("latest")
+                    }
+                }
+            }
+        }
 
-  }
+        stage('Pull-image-server') {
+            steps {
+                // Pulling and running the Docker image on the server
+                sh 'echo pulling image ...'
+                sh 'docker-compose down'
+                sh 'docker-compose up -d'
+            }
+        }
+    }
+    post {
+        always {
+            // Cleaning up the workspace
+            cleanWs()
+        }
+    }
 }
